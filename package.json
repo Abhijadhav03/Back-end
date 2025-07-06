@@ -1,0 +1,17 @@
+{
+  "name": "back-end",
+  "version": "1.0.0",
+  "description": "learning backend",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "keywords": [
+    "backend",
+    "models",
+    "controllers",
+    "db"
+  ],
+  "author": "abhishek",
+  "license": "ISC"
+}
