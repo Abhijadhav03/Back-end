@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "description": "learning backend",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "test"
+    "test": "test",
+    "dev": "nodemon index.js"
   },
   "keywords": [
     "backend",
@@ -13,5 +15,8 @@
     "db"
   ],
   "author": "abhishek",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
 }
