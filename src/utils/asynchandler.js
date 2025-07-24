@@ -29,7 +29,7 @@
 //         next(error); // Pass the error to the next middleware
 //     }
 
-    const asynchandler =(requesthandler) => async(req, res, next) => {
+    const asyncHandler =(requesthandler) => async(req, res, next) => {
         Promise.resolve(requesthandler(req, res, next))
             .then((result) => {
                 return result;
