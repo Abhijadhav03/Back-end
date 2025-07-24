@@ -1,8 +1,9 @@
-import { v2 } from "cloudinary";
+// src/utils/cloudinary.js
+import { v2 as cloudinary } from "cloudinary";
+import dotenv from "dotenv";
 import fs from "fs";
-import path from "path";
 
-const cloudinary = v2;
+dotenv.config();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -10,25 +11,19 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-
 const uploadImage = async (filePath) => {
   try {
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`File not found: ${filePath}`);
-    }
     const result = await cloudinary.uploader.upload(filePath, {
       resource_type: "auto",
     });
-    console.log("Image uploaded successfully:", result.url);
-    
+    fs.unlinkSync(filePath); // delete local file after uploading
     return result;
+    console.log("✅ Image uploaded to Cloudinary:", result);
   } catch (error) {
-    fs.unlinkSync(filePath); // Clean up the file after upload
-    if (error.http_code === 400) {
-      console.error("Bad request error:", error);
-    }
-    console.error("Error uploading image to Cloudinary:", error);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    console.error("❌ Error uploading image to Cloudinary:", error);
     throw error;
   }
 };
+
 export { cloudinary, uploadImage };
