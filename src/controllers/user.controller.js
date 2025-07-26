@@ -19,7 +19,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'User with given username or email already exists.');
   }
 
-  // 👇 MATCH THE FIELD NAMES HERE
+  
   const avatarLocalPath = req?.files?.avatar?.[0]?.path;
   const coverLocalPath = req?.files?.coverImage?.[0]?.path;
 console.log(avatarLocalPath, coverLocalPath);
@@ -72,8 +72,11 @@ const loginUser = asyncHandler(async (req, res) => {
   const refreshToken = user.generateRefreshToken();
 
   user.refreshToken = refreshToken;
-  await user.save();
-
+  await user.save({ validateBeforeSave: false });
+ const options = { httponly: true, secure: true, sameSite: 'Strict' };
+  res.cookie('refreshToken', refreshToken, options);
+  res.cookie('accessToken', accessToken, options);
+  console.log("User logged in:", user);
   const userResponse = user.toObject();
   delete userResponse.password;
 
@@ -85,7 +88,123 @@ const loginUser = asyncHandler(async (req, res) => {
   });
 });
 
-export { registerUser, loginUser };
+
+const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(req.user._id, { 
+    $set: {
+      refreshToken: undefined,
+      lastLogin: new Date()  // Update last login time on logout
+    }
+  }, { new: true });
+  // Clear cookies
+  
+  const options = { httponly: true, secure: true, sameSite: 'Strict' };
+  return res
+    .clearCookie('refreshToken', options)
+    .clearCookie('accessToken', options)
+    .status(200)
+    .json({ message: 'Logout successful' });
+
+  
+});
+
+const updateUser = asyncHandler(async (req, res) => {
+  const { fullname, username, email } = req.body;
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+  user.fullname = fullname;
+  user.username = username;
+  user.email = email;
+  await user.save();
+  res.status(200).json({ message: 'User updated successfully', user });
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  const avatarLocalPath = req?.files?.avatar?.[0]?.path;
+  if (!avatarLocalPath) {
+    throw new ApiError(400, 'Avatar image is required.');
+  }
+
+  const uploadedAvatar = await uploadImage(avatarLocalPath).catch(err => {
+    throw new ApiError(500, 'Error uploading avatar image: ' + err.message);
+  });
+
+  user.avatar = uploadedAvatar.secure_url;
+  await user.save();
+
+  res.status(200).json({ message: 'User avatar updated successfully', user });
+});
+
+const updateUserCoverImage = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  const coverLocalPath = req?.files?.cover?.[0]?.path;
+  if (!coverLocalPath) {
+    throw new ApiError(400, 'Cover image is required.');
+  }
+
+  const uploadedCover = await uploadImage(coverLocalPath).catch(err => {
+    throw new ApiError(500, 'Error uploading cover image: ' + err.message);
+  });
+
+  user.coverImage = uploadedCover.secure_url;
+  await user.save();
+
+  res.status(200).json({ message: 'User cover image updated successfully', user });
+});
+
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken ||
+    req.body.refreshToken ||
+    req.headers.authorization?.split(" ")[1];
+
+  if (!incomingRefreshToken) {
+    return res.status(401).json({ message: "Refresh token is required" });
+  }
+
+  jwt.verify(
+    incomingRefreshToken,
+    process.env.REFRESH_TOKEN_SECRET,
+    async (err, decoded) => {
+      if (err) {
+        console.error("Refresh Token Error:", err.message);
+        return res.status(403).json({ message: "Invalid or expired refresh token" });
+      }
+
+      const user = await User.findById(decoded.id);
+      if (!user || user.refreshToken !== incomingRefreshToken) {
+        return res.status(403).json({ message: "Invalid or expired refresh token" });
+      }
+
+      const newAccessToken = user.generateAccessToken();
+
+      const cookieOptions = {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Strict',
+      };
+
+      res.cookie('accessToken', newAccessToken, cookieOptions);
+      return res.status(200).json({
+        accessToken: newAccessToken,
+        message: "Access token refreshed successfully",
+      });
+    }
+  );
+});
+
+export { registerUser, loginUser, logoutUser, updateUser, updateUserAvatar, updateUserCoverImage, refreshAccessToken };
 
 
 
@@ -200,6 +319,7 @@ export { registerUser, loginUser };
 // import userSchema from '../models/user.model.js';
 // import bcrypt from 'bcryptjs';
 // import User from '../models/user.modal.js';
+// import { jwt } from 'jsonwebtoken';
 // const registerUser = asyncHandler(async (req, res) => {
 //   const { fullname, username, password, email } = req.body;
 
